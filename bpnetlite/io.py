@@ -317,7 +317,7 @@ def extract_loci(loci, sequences, signals=None, controls=None, chroms=None,
 	loci_dfs = []
 	for i, df in enumerate(loci):
 		if isinstance(df, str):
-			df = pandas.read_csv(df, sep='\t', usecols=[0, 1, 2], 
+			df = pandas.read_csv(df, sep='\t', comment='#', usecols=[0, 1, 2], 
 				header=None, index_col=False, names=names)
 		elif isinstance(df, pandas.DataFrame):
 			df = df.iloc[:, [0, 1, 2]].copy()
