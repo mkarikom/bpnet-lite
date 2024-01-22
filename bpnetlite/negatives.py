@@ -222,7 +222,7 @@ def extract_matching_loci(loci, fasta, in_window=2114, out_window=1000,
 
 	if isinstance(loci, str):
 		loci = pandas.read_csv(loci, sep='\t', usecols=[0, 1, 2], header=None, 
-			index_col=False, names=['chrom', 'start', 'end'])
+			index_col=False, comment='#', names=['chrom', 'start', 'end'])
 
 	if chroms is None:
 		chroms = numpy.unique(loci['chrom'])

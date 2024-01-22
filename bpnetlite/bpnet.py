@@ -338,6 +338,9 @@ class BPNet(torch.nn.Module):
 		for epoch in range(max_epochs):
 			tic = time.time()
 
+			total_valid_loss = 0
+			valid_iterations = 0
+
 			for data in training_data:
 				if len(data) == 3:
 					X, X_ctl, y = data
@@ -414,11 +417,19 @@ class BPNet(torch.nn.Module):
 							early_stop_count = 0
 						else:
 							early_stop_count += 1
+				total_valid_loss += valid_loss.item()
+				valid_iterations += 1
 
 				if early_stopping is not None and early_stop_count >= early_stopping:
 					break
 
 				iteration += 1
+
+			# Calculate and report average validation loss for the epoch
+			if valid_iterations > 0:
+				avg_valid_loss = total_valid_loss / valid_iterations
+				if verbose:
+					print(f"Epoch {epoch}: Average Validation Loss = {avg_valid_loss}")
 
 			if early_stopping is not None and early_stop_count >= early_stopping:
 				break
