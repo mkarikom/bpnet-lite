@@ -54,7 +54,6 @@ def calculate_perc(sequence, width, chars):
 	is_in = is_in[:len(is_in) // width * width].reshape(-1, width)
 	return is_in.mean(axis=-1)
 
-
 def extract_and_filter_chrom(fasta, chrom, in_window, out_window, 
 	max_n_perc=0.1, gc_bin_width=0.02, bigwig=None, signal_threshold=None):
 	"""Calculate GC content for, and filter, one chromosome.
@@ -79,7 +78,7 @@ def extract_and_filter_chrom(fasta, chrom, in_window, out_window,
 		window of the downstream model that will be trained.
 
 	out_window: int
-		The window to calculate signal for and apply the signal threshold to,
+		The window to calculate signal for and apply the signal to,
 		corresponding to the output window of the downstream model that will
 		be trained.
 
@@ -125,14 +124,19 @@ def extract_and_filter_chrom(fasta, chrom, in_window, out_window,
 			values = bw.values(chrom, 0, -1, numpy=True)
 		except RuntimeError:
 			return {}
-
+		values = numpy.nan_to_num(values)
 		values = values[:values.shape[0] // in_window * in_window]
 		values = values.reshape(-1, in_window)
 		values[:, :flank] = 0
 		values[:, -flank:] = 0
 		values = values.sum(axis=-1)
 
-		v_idxs = values <= signal_threshold
+		# Get indices of values >= signal_threshold
+		v_idxs = numpy.zeros_like(values, dtype=bool)
+		if signal_threshold is not None:
+			v_idxs[numpy.where(values >= signal_threshold)[0]] = True
+		else:
+			v_idxs[numpy.nonzero(values)[0]] = True
 		idxs = idxs & v_idxs
 
 	idxs = numpy.where(idxs)[0]
@@ -186,7 +190,7 @@ def extract_matching_loci(loci, fasta, in_window=2114, out_window=1000,
 		If filtering regions based on signal strength, calculate the signal
 		from this bigwig. If None, do not filter based on signal strength.
 		Default is None.
-
+  
 	signal_beta: float or None, optional
 		A multiplier of the robust minimum signal calculated from `loci` that
 		each background region must have fewer reads then. Only relevant if a
@@ -229,11 +233,13 @@ def extract_matching_loci(loci, fasta, in_window=2114, out_window=1000,
 
 	if bigwig:
 		X, y = extract_loci(loci, fasta, in_window=in_window, signals=[bigwig],
-			out_window=out_window, verbose=verbose)
+			out_window=out_window, verbose=verbose, chroms=chroms)
 		robust_min = torch.quantile(y.sum(dim=(1, 2)), 0.01).item()
+		print(f"signal min: {robust_min}")
 		threshold = robust_min * signal_beta
+		print(f"signal threshold: {threshold}")
 	else:
-		X = extract_loci(loci, fasta, in_window=in_window, verbose=verbose)
+		X = extract_loci(loci, fasta, in_window=in_window, verbose=verbose, chroms=chroms)
 		threshold = None
 
 
@@ -250,11 +256,12 @@ def extract_matching_loci(loci, fasta, in_window=2114, out_window=1000,
 	# Extract mask of already-selected loci
 	mask = {chrom: [] for chrom in chroms}
 	for _, (chrom, start, end) in loci.iterrows():
-		start = int(start // in_window)
-		end = int(end // in_window) + 1
+		if chrom in chroms:
+			start = int(start // in_window)
+			end = int(end // in_window) + 1
 
-		for idx in range(start, end):
-			mask[chrom].append(idx)
+			for idx in range(start, end):
+				mask[chrom].append(idx)
 
 	for chrom, values in mask.items():
 		mask[chrom] = set(values)
@@ -348,11 +355,11 @@ def extract_matching_loci(loci, fasta, in_window=2114, out_window=1000,
 	if verbose:
 		if bigwig is None:
 			X_matched = extract_loci(matched_loci, fasta, in_window=in_window, 
-				verbose=verbose)
+				verbose=verbose, chroms=chroms)
 		else:
 			X_matched, y_matched = extract_loci(matched_loci, fasta, 
 				signals=[bigwig], in_window=in_window, out_window=out_window, 
-				verbose=verbose)
+				verbose=verbose, chroms=chroms)
 
 		# Extract reference GC bins
 		matched_gc = X_matched.mean(axis=-1)[:, [1, 2]].sum(axis=1).numpy()
