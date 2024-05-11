@@ -39,7 +39,9 @@ def MNLLLoss(logps, true_counts):
 	log_fact_sum = torch.lgamma(torch.sum(true_counts, dim=-1) + 1)
 	log_prod_fact = torch.sum(torch.lgamma(true_counts + 1), dim=-1)
 	log_prod_exp = torch.sum(true_counts * logps, dim=-1)
-	return -log_fact_sum + log_prod_fact - log_prod_exp
+	all_batch = -log_fact_sum + log_prod_fact - log_prod_exp
+	all_batch_seq_len_norm = all_batch.div(true_counts.shape[1])
+	return all_batch_seq_len_norm.mean()
 
 def log1pMSELoss(log_predicted_counts, true_counts):
 	"""A MSE loss on the log(x+1) of the inputs.
