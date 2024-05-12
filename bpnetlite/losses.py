@@ -7,6 +7,89 @@ This module contains the losses used by BPNet for training.
 
 import torch
 
+def DMNLLLoss(logps, true_counts, alpha=0.1,gamma=1e-3):
+	"""A loss function based on the dirichlet multinomial negative log-likelihood.
+
+	This loss function takes in a tensor of normalized log probabilities such
+	that the sum of each row is equal to 1 (e.g. from a log softmax) and
+	an equal sized tensor of true counts and returns the probability of
+	observing the true counts given the predicted probabilities under a
+	multinomial distribution. Can accept tensors with 2 or more dimensions
+	and averages over all except for the last axis, which is the number
+	of categories.
+
+	Adapted from Jacob Schreiber.
+
+	Parameters
+	----------
+	logps: torch.tensor, shape=(n, ..., L)
+		A tensor with `n` examples and `L` possible categories. 
+
+	true_counts: torch.tensor, shape=(n, ..., L)
+		A tensor with `n` examples and `L` possible categories.
+	Returns
+	-------
+
+	loss: float
+		The multinomial log likelihood loss of the true counts given the
+		predicted probabilities, averaged over all examples and all other
+		dimensions.
+	"""
+	# breakpoint()
+	penalized_dirichlet = -torch.sum(torch.pow(logps.exp(), alpha).log(), dim=1).mul(gamma)
+	# breakpoint()
+	print(f"penalized dirichlet: {penalized_dirichlet}")
+	# print(f"min(unnormalized_dirichlet({unnormalized_dirichlet.shape}))={'{:.2e}'.format(unnormalized_dirichlet.min())}") 
+	# print(f"max(unnormalized_dirichlet({unnormalized_dirichlet.shape}))={'{:.2e}'.format(unnormalized_dirichlet.max())}") 
+
+	# print(f"min(all_batch_prior)={'{:.2e}'.format(all_batch_prior.min())}") 
+	# print(f"max(all_batch_prior)={'{:.2e}'.format(all_batch_prior.max())}") 
+
+
+	log_fact_sum = torch.lgamma(torch.sum(true_counts, dim=-1) + 1)
+	log_prod_fact = torch.sum(torch.lgamma(true_counts + 1), dim=-1)
+	log_prod_exp = torch.sum(true_counts * logps, dim=-1)
+	all_batch_multinom = -log_fact_sum + log_prod_fact - log_prod_exp
+	all_batch = all_batch_multinom.mean() + penalized_dirichlet.mean()
+	# all_batch = all_batch_multinom
+	all_batch_seq_len_norm = all_batch.div(true_counts.shape[1])
+	return all_batch_seq_len_norm
+
+def MNLLLossOld(logps, true_counts):
+	"""A loss function based on the multinomial negative log-likelihood.
+
+	This loss function takes in a tensor of normalized log probabilities such
+	that the sum of each row is equal to 1 (e.g. from a log softmax) and
+	an equal sized tensor of true counts and returns the probability of
+	observing the true counts given the predicted probabilities under a
+	multinomial distribution. Can accept tensors with 2 or more dimensions
+	and averages over all except for the last axis, which is the number
+	of categories.
+
+	Adapted from Alex Tseng.
+
+	Parameters
+	----------
+	logps: torch.tensor, shape=(n, ..., L)
+		A tensor with `n` examples and `L` possible categories. 
+
+	true_counts: torch.tensor, shape=(n, ..., L)
+		A tensor with `n` examples and `L` possible categories.
+
+	Returns
+	-------
+	loss: float
+		The multinomial log likelihood loss of the true counts given the
+		predicted probabilities, averaged over all examples and all other
+		dimensions.
+	"""
+
+	log_fact_sum = torch.lgamma(torch.sum(true_counts.flatten(), dim=-1) + 1)
+	log_prod_fact = torch.sum(torch.lgamma(true_counts.flatten() + 1), dim=-1)
+	log_prod_exp = torch.sum(true_counts.flatten() * logps.flatten(), dim=-1)
+	unnormalized_loss = -log_fact_sum + log_prod_fact - log_prod_exp
+	return unnormalized_loss
+
 def MNLLLoss(logps, true_counts):
 	"""A loss function based on the multinomial negative log-likelihood.
 
