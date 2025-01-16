@@ -25,6 +25,6 @@ setup(
         "seaborn >= 0.11.2",
         "modisco-lite >= 2.0.0",
         "joblib >= 1.3.2",
-        "python_requires= >=3.7,<3.13",
+        "python_requires>=3.7,<3.13",
     ],
 )
